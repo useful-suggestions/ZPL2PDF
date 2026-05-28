@@ -97,7 +97,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 VOLUME ["/app/config"]
 
 # Default command
-CMD ["/app/ZPL2PDF", "--api", "--host", "localhost", "--port", "5000"]
+CMD ["/app/ZPL2PDF", "--api", "--host", "0.0.0.0", "--port", "5000"]
 EXPOSE 5000
 
 # Metadata
