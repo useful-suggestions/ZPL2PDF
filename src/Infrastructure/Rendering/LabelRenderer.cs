@@ -41,7 +41,11 @@ namespace ZPL2PDF {
                 OpaqueBackground = false
             };
             if (_fontsDirectory != null || (_fontMappings != null && _fontMappings.Count > 0)) {
-                options.FontLoader = CreateFontLoader();
+                // BinaryKits resolves text typefaces via options.FontManager.FontLoader; the legacy
+                // options.FontLoader property is [Obsolete] and ignored during rendering. Wrap the
+                // existing loader so unmapped font ids keep BinaryKits' default behavior.
+                var fallback = options.FontManager.FontLoader;
+                options.FontManager.FontLoader = CreateFontLoader(fallback);
             }
             return options;
         }
@@ -49,7 +53,7 @@ namespace ZPL2PDF {
         /// <summary>
         /// Builds a delegate that resolves ZPL font ID (0, A, B, ...) to SKTypeface from --fonts-dir and --font mappings.
         /// </summary>
-        private Func<string, SKTypeface?> CreateFontLoader() {
+        private Func<string, SKTypeface?> CreateFontLoader(Func<string, SKTypeface?>? fallback) {
             var fontsDir = _fontsDirectory ?? string.Empty;
             var mappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (_fontMappings != null) {
@@ -59,23 +63,54 @@ namespace ZPL2PDF {
                     mappings[id.Trim()] = resolved;
                 }
             }
+            // Opt-in resolution logging (stderr, so it never corrupts stdout PDF output).
+            // Set ZPL2PDF_FONT_DEBUG=1 to see, per font id, whether it loaded from file or fell back.
+            bool debug = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ZPL2PDF_FONT_DEBUG"));
+            var logged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            void Log(string id, string outcome) {
+                if (!debug || !logged.Add(id)) return; // one line per unique font id
+                Console.Error.WriteLine($"[ZPL2PDF][font] id='{id}' -> {outcome}");
+            }
+            SKTypeface? Fallback(string id) => fallback != null ? fallback(id) : SKTypeface.Default;
+
             return fontId => {
-                if (string.IsNullOrEmpty(fontId)) return SKTypeface.Default;
+                if (string.IsNullOrEmpty(fontId)) {
+                    Log("(empty)", "fallback (empty font id)");
+                    return Fallback(fontId);
+                }
                 var key = fontId.Trim();
                 if (mappings.TryGetValue(key, out var path) && File.Exists(path)) {
-                    try { return SKTypeface.FromFile(path) ?? SKTypeface.Default; } catch { /* fallback */ }
+                    try {
+                        var tf = SKTypeface.FromFile(path);
+                        if (tf != null) {
+                            Log(key, $"FromFile (mapping): {path} [family={tf.FamilyName}]");
+                            return tf;
+                        }
+                        Log(key, $"SKTypeface.Default (mapping file unreadable: {path})");
+                        return SKTypeface.Default;
+                    } catch (Exception ex) {
+                        Log(key, $"SKTypeface.Default (mapping FromFile failed: {path} - {ex.GetType().Name})");
+                        return SKTypeface.Default;
+                    }
                 }
                 if (!string.IsNullOrWhiteSpace(fontsDir)) {
                     var byName = Path.Combine(fontsDir, key + ".ttf");
                     if (File.Exists(byName)) {
-                        try { return SKTypeface.FromFile(byName) ?? SKTypeface.Default; } catch { }
+                        try {
+                            var tf = SKTypeface.FromFile(byName);
+                            if (tf != null) { Log(key, $"FromFile (fonts-dir): {byName} [family={tf.FamilyName}]"); return tf; }
+                        } catch (Exception ex) { Log(key, $"fonts-dir FromFile failed: {byName} - {ex.GetType().Name}"); }
                     }
                     var byNameOtf = Path.Combine(fontsDir, key + ".otf");
                     if (File.Exists(byNameOtf)) {
-                        try { return SKTypeface.FromFile(byNameOtf) ?? SKTypeface.Default; } catch { }
+                        try {
+                            var tf = SKTypeface.FromFile(byNameOtf);
+                            if (tf != null) { Log(key, $"FromFile (fonts-dir): {byNameOtf} [family={tf.FamilyName}]"); return tf; }
+                        } catch (Exception ex) { Log(key, $"fonts-dir FromFile failed: {byNameOtf} - {ex.GetType().Name}"); }
                     }
                 }
-                return SKTypeface.Default;
+                Log(key, "fallback to BinaryKits default (no mapping/file matched)");
+                return Fallback(key);
             };
         }
 
