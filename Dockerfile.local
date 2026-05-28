@@ -98,6 +98,7 @@ VOLUME ["/app/config"]
 
 # Default command
 CMD ["/app/ZPL2PDF", "--api", "--host", "localhost", "--port", "5000"]
+EXPOSE 5000
 
 # Metadata
 LABEL maintainer="brunoleocam" \
