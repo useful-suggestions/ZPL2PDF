@@ -90,7 +90,7 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
     DOTNET_RUNNING_IN_CONTAINER=true \
     LC_ALL=en_US.UTF-8 \
     LANG=en_US.UTF-8 \
-    ZPL2PDF_LANGUAGE=en-US
+    ZPL2PDF_LANGUAGE=pt-BR
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

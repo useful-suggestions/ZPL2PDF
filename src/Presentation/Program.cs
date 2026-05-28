@@ -147,7 +147,11 @@ namespace ZPL2PDF
             // Parse host and port from arguments
             string host = "0.0.0.0";  // Default: listen on all interfaces (Docker-friendly)
             int port = 5000;
-            
+
+            // Server-level font configuration (--fonts-dir / repeatable --font id=path), applied to every request.
+            string? fontsDirectory = null;
+            var fontMappings = new List<(string Id, string Path)>();
+
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "--host" && i + 1 < args.Length)
@@ -158,7 +162,26 @@ namespace ZPL2PDF
                 {
                     port = parsedPort;
                 }
+                else if (args[i] == "--fonts-dir" && i + 1 < args.Length)
+                {
+                    fontsDirectory = args[i + 1];
+                }
+                else if (args[i] == "--font" && i + 1 < args.Length)
+                {
+                    var pair = args[i + 1];
+                    var eq = pair.IndexOf('=');
+                    if (eq > 0)
+                    {
+                        var id = pair.Substring(0, eq).Trim();
+                        var path = pair.Substring(eq + 1).Trim();
+                        if (!string.IsNullOrEmpty(id))
+                            fontMappings.Add((id, path));
+                    }
+                }
             }
+
+            var fontsDirArg = string.IsNullOrWhiteSpace(fontsDirectory) ? null : fontsDirectory;
+            IReadOnlyList<(string Id, string Path)>? fontMappingsArg = fontMappings.Count > 0 ? fontMappings : null;
 
             var builder = WebApplication.CreateBuilder(args);
             
@@ -237,7 +260,7 @@ namespace ZPL2PDF
 
                     // When format=pdf, try direct PDF via Labelary according to renderer policy.
                     // In auto mode, failures fall back to PNG pipeline.
-                    if (format == "pdf" && TryConvertDirectPdfResponse(request, conversionService, width, height, unit, dpi, rendererEngine, out var directPdfBytes, out var pages))
+                    if (format == "pdf" && TryConvertDirectPdfResponse(request, conversionService, width, height, unit, dpi, rendererEngine, fontsDirArg, fontMappingsArg, out var directPdfBytes, out var pages))
                     {
                         var directResponse = new ConvertResponse
                         {
@@ -254,7 +277,7 @@ namespace ZPL2PDF
                     }
 
                     // PNG pipeline (also used as fallback for PDF).
-                    var imageDataList = ConvertToImages(request, conversionService, width, height, unit, dpi, rendererEngine);
+                    var imageDataList = ConvertToImages(request, conversionService, width, height, unit, dpi, rendererEngine, fontsDirArg, fontMappingsArg);
 
                     if (imageDataList == null || imageDataList.Count == 0)
                     {
@@ -347,6 +370,8 @@ namespace ZPL2PDF
             string unit,
             int dpi,
             RendererEngine rendererEngine,
+            string? fontsDirectory,
+            IReadOnlyList<(string Id, string Path)>? fontMappings,
             out byte[]? directPdfBytes,
             out int pages)
         {
@@ -365,7 +390,9 @@ namespace ZPL2PDF
                     unit,
                     dpi,
                     rendererEngine,
-                    out directPdfBytes);
+                    out directPdfBytes,
+                    fontsDirectory,
+                    fontMappings);
             }
             else if (request.ZplArray != null && request.ZplArray.Count > 0)
             {
@@ -385,7 +412,9 @@ namespace ZPL2PDF
                         unit,
                         dpi,
                         rendererEngine,
-                        out var partPdfBytes))
+                        out var partPdfBytes,
+                        fontsDirectory,
+                        fontMappings))
                     {
                         pdfParts.Clear();
                         break;
@@ -412,13 +441,15 @@ namespace ZPL2PDF
             double height,
             string unit,
             int dpi,
-            RendererEngine rendererEngine)
+            RendererEngine rendererEngine,
+            string? fontsDirectory,
+            IReadOnlyList<(string Id, string Path)>? fontMappings)
         {
             var imageDataList = new List<byte[]>();
 
             if (!string.IsNullOrWhiteSpace(request.Zpl))
             {
-                return conversionService.Convert(request.Zpl, width, height, unit, dpi, rendererEngine: rendererEngine);
+                return conversionService.Convert(request.Zpl, width, height, unit, dpi, fontsDirectory, fontMappings, rendererEngine);
             }
 
             if (request.ZplArray == null || request.ZplArray.Count == 0)
@@ -431,7 +462,7 @@ namespace ZPL2PDF
                 if (string.IsNullOrWhiteSpace(zpl))
                     continue;
 
-                var images = conversionService.Convert(zpl, width, height, unit, dpi, rendererEngine: rendererEngine);
+                var images = conversionService.Convert(zpl, width, height, unit, dpi, fontsDirectory, fontMappings, rendererEngine);
                 imageDataList.AddRange(images);
             }
 
