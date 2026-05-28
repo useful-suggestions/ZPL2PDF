@@ -40,8 +40,8 @@ namespace ZPL2PDF.Tests.UnitTests.Regression
             var pngImagesUtf8 = conversionService.ConvertWithExplicitDimensions(Utf8SuiteZpl, 80, 40, "mm", 203);
             var pngImagesAztec = conversionService.ConvertWithExplicitDimensions(AztecSuiteZpl, 120, 60, "mm", 203);
 
-            var pdfBytesUtf8 = PdfGenerator.GeneratePdfToBytes(pngImagesUtf8);
-            var pdfBytesAztec = PdfGenerator.GeneratePdfToBytes(pngImagesAztec);
+            var pdfBytesUtf8 = PdfGenerator.GeneratePdfToBytes(pngImagesUtf8, 203);
+            var pdfBytesAztec = PdfGenerator.GeneratePdfToBytes(pngImagesAztec, 203);
 
             sw.Stop();
 

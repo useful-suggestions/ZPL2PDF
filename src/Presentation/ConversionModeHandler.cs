@@ -118,7 +118,7 @@ namespace ZPL2PDF
             if (argumentProcessor.StandardOutput)
             {
                 // Write the PDF bytes to stdout only. Do not write additional console text.
-                byte[] data = PdfGenerator.GeneratePdfToBytes(imageDataList);
+                byte[] data = PdfGenerator.GeneratePdfToBytes(imageDataList, argumentProcessor.Dpi);
                 Stream stdout = Console.OpenStandardOutput();
                 stdout.Write(data, 0, data.Length);
                 stdout.Flush();
@@ -129,7 +129,7 @@ namespace ZPL2PDF
             _pathService.EnsureDirectoryExists(argumentProcessor.OutputFolderPath);
 
             string outputPdf = Path.Combine(argumentProcessor.OutputFolderPath, argumentProcessor.OutputFileName);
-            PdfGenerator.GeneratePdf(imageDataList, outputPdf);
+            PdfGenerator.GeneratePdf(imageDataList, outputPdf, argumentProcessor.Dpi);
 
             Console.WriteLine($"PDF generated successfully: {outputPdf}");
             Console.WriteLine($"   Images processed: {imageDataList.Count}");

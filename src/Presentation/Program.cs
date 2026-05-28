@@ -273,7 +273,7 @@ namespace ZPL2PDF
 
                     if (format == "pdf")
                     {
-                        var pdfBytes = PdfGenerator.GeneratePdfToBytes(imageDataList);
+                        var pdfBytes = PdfGenerator.GeneratePdfToBytes(imageDataList, dpi);
                         response.Pdf = Convert.ToBase64String(pdfBytes);
                     }
                     else // png

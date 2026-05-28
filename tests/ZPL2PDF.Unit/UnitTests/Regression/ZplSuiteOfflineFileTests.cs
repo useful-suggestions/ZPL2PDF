@@ -96,7 +96,7 @@ namespace ZPL2PDF.Tests.UnitTests.Regression
                 ? conversionService.ConvertWithExtractedDimensions(zpl, Unit, Dpi)
                 : conversionService.ConvertWithExplicitDimensions(zpl, widthMm, heightMm, Unit, Dpi);
 
-            var pdfBytes = PdfGenerator.GeneratePdfToBytes(pngImages);
+            var pdfBytes = PdfGenerator.GeneratePdfToBytes(pngImages, Dpi);
 
             sw.Stop();
 
