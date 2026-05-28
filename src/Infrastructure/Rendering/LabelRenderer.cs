@@ -203,6 +203,8 @@ namespace ZPL2PDF {
                         var drawer = new ZplElementDrawer(printerStorage, drawerOptions);
                         
                         // Use DPMM for Draw (BinaryKits library expects DPMM)
+                        // save the values in .txt file to debug the label dimensions and DPI used for rendering
+                        File.WriteAllText("label_dimensions.txt", $"Width: {_labelWidthMm}, Height: {_labelHeightMm}, DPI: {_labelDpi}, DPMM: {dpmm}");
                         byte[] imageData = drawer.Draw(labelInfo.ZplElements, _labelWidthMm, _labelHeightMm, dpmm);
                         images.Add(imageData);
                     }
